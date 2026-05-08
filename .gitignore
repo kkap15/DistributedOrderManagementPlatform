@@ -1,0 +1,67 @@
+
+# =========================
+# .NET / ASP.NET Core
+# =========================
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio folders
+.vs/
+
+# Build results
+Debug/
+Release/
+
+# Logs
+*.log
+
+# Rider / VS Code settings
+.idea/
+.vscode/
+
+# =========================
+# Angular / Node
+# =========================
+node_modules/
+dist/
+tmp/
+out/
+.angular/
+
+# Package lock (optional; keep if using consistent installs)
+# package-lock.json
+
+# =========================
+# Environment & Secrets
+# =========================
+.env
+.env.local
+.env.*.local
+
+# Angular environment files (if sensitive)
+src/environments/environment*.ts
+
+# Auth0 / API secrets (IMPORTANT)
+appsettings.Development.json
+appsettings.Production.json
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Test results
+# =========================
+TestResults/
+coverage/
+
+# =========================
+# Publish output
+# =========================
+publish/

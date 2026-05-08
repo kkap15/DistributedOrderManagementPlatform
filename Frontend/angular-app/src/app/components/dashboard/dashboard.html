@@ -1,0 +1,21 @@
+<h2>Dashboard</h2>
+
+<p>Loading state: {{loading}}</p>
+<button (click)="createOrder()" [disabled]="loading">
+  {{ loading ? 'Processing' : 'Create Order' }}
+</button>
+
+<button (click)="logout()">Logout</button>
+
+@if (resultMessage) {
+  <div style="color:green">
+    {{ resultMessage }}
+  </div>
+}
+
+@if (errorMessage) {
+  <div style="color:red">
+    {{ errorMessage }}
+  </div>
+}
+
