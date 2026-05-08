@@ -4,11 +4,12 @@ namespace OrderService.Models
 {
     public class Order
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public string OrderNumber { get; set; }
-        public int UserId { get; set; }
-        public DateTime CreatedDate { get; set; }
-        public decimal TotalAmount { get; set; }
         public string Status { get; set; }
+        public Guid TransactionId { get; set; }
+        public Guid UserId { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public decimal TotalAmount { get; set; }
     }
 }
