@@ -46,7 +46,7 @@ public class PaymentClient(HttpClient httpClient)
     public async Task<PaymentResponse> ProcessPayment()
     {
         var response = await _pipeline.ExecuteAsync(async ct =>
-            await httpClient.PostAsync("http://localhost:5001/api/payment", null, ct));
+            await httpClient.PostAsync("/api/payment", null, ct));
 
         var result = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<PaymentResponse>(result, _jsonOptions);
@@ -55,7 +55,7 @@ public class PaymentClient(HttpClient httpClient)
     public async Task<PaymentResponse> GetPaymentResponse(Guid transactionId)
     {
         var response = await _pipeline.ExecuteAsync(async ct =>
-            await httpClient.GetAsync($"http://localhost:5001/api/payment/{transactionId}", ct));
+            await httpClient.GetAsync($"/api/payment/{transactionId}", ct));
 
         var result = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<PaymentResponse>(result, _jsonOptions);

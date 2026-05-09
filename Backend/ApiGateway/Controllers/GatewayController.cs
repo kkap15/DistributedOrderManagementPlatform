@@ -6,16 +6,18 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace ApiGateway.Controllers;
 
 [ApiController]
 [Route("gateway")]
-public class GatewayController(IHttpClientFactory clientFactory, ILogger<GatewayController> _logger) : ControllerBase
+public class GatewayController(IHttpClientFactory clientFactory, ILogger<GatewayController> _logger, IConfiguration configuration) : ControllerBase
 {
     private readonly HttpClient _httpClient = clientFactory.CreateClient();
-
+    private string OrderService => configuration["Services:OrderService"]!;
+    private string UserService => configuration["Services:UserService"]!;
 
     /*
     * Gateway intercepts the token and body and send it to 
@@ -32,7 +34,7 @@ public class GatewayController(IHttpClientFactory clientFactory, ILogger<Gateway
         var body = await new StreamReader(Request.Body).ReadToEndAsync();
         Request.Body.Position = 0;
         _logger.LogInformation($"Received order creation request with body: {body}");
-        var request = new HttpRequestMessage(new HttpMethod("POST"), $"http://localhost:5000/api/order/create");
+        var request = new HttpRequestMessage(new HttpMethod("POST"), $"{OrderService}/api/order/create");
         request.Content = new StringContent(body, Encoding.UTF8, "application/json");
         request.Headers.Add("Authorization", token);
         var response = await _httpClient.SendAsync(request);
@@ -67,7 +69,7 @@ public class GatewayController(IHttpClientFactory clientFactory, ILogger<Gateway
     public async Task<IActionResult> GetOrders()
     {
         var qs = Request.QueryString.Value ?? "";
-        var request = new HttpRequestMessage(new HttpMethod("GET"), $"http://localhost:5000/api/order/get{qs}");
+        var request = new HttpRequestMessage(new HttpMethod("GET"), $"{OrderService}/api/order/get{qs}");
         var response = await _httpClient.SendAsync(request);
         var result = await response.Content.ReadAsStringAsync();
         _logger.LogInformation("Received GET request at API Gateway");
@@ -79,7 +81,7 @@ public class GatewayController(IHttpClientFactory clientFactory, ILogger<Gateway
     public async Task<IActionResult> UserLogin()
     {
         var token = Request.Headers.Authorization.ToString();
-        var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost:5003/api/user/login");
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{UserService}/api/user/login");
         request.Headers.Add("Authorization", token);
         var response = await _httpClient.SendAsync(request);
         var result = await response.Content.ReadAsStringAsync();
@@ -94,7 +96,7 @@ public class GatewayController(IHttpClientFactory clientFactory, ILogger<Gateway
     public async Task<IActionResult> GetMe()
     {
         var token = Request.Headers.Authorization.ToString();
-        var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost:5003/api/user/me");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{UserService}/api/user/me");
         request.Headers.Add("Authorization", token);
         var response = await _httpClient.SendAsync(request);
         var result = await response.Content.ReadAsStringAsync();
