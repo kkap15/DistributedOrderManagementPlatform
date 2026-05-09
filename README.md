@@ -1,119 +1,125 @@
-# Microservices Order Processing System
+# Distributed Order Management Platform
 
-A full-stack microservices application built with Angular, .NET, and Auth0, demonstrating secure communication, API gateway architecture, and resilient service-to-service interactions.
-
----
-
-## 🚀 Architecture Overview
-
-
-Angular (Frontend + Auth0)
-│
-▼
-API Gateway (JWT validation, routing)
-│
-▼
-OrderService (business logic)
-│
-▼
-PaymentClient (Polly: retry + circuit breaker)
-│
-▼
-PaymentService (payment processing)
+A full-stack microservices application built with Angular, .NET 10, and Auth0 — demonstrating secure user authentication, API gateway routing, database persistence, and resilient service-to-service communication.
 
 ---
 
-## ✅ Features
+## Architecture
 
-- 🔐 Auth0 Authentication (login, logout, silent session restore)
-- 🌐 Angular Frontend with reactive UI
-- 🛡 API Gateway with JWT validation and routing
-- 🔄 Request forwarding (headers + body)
-- 📦 Order processing microservice
-- 💳 Payment service with transaction support
-- ♻️ Resilient service communication using Polly:
-    - Retry with exponential backoff
-    - Circuit breaker pattern
-- 🔁 End-to-end REST API integration
-- 🔍 Debugging and handling of:
-    - CORS issues
-    - JSON serialization mismatches
-    - Authentication and token propagation
-    - API routing errors
-
----
-
-## 🛠 Tech Stack
-
-- **Frontend**
-    - Angular
-    - RxJS
-    - Auth0 Angular SDK
-
-- **Backend**
-    - .NET (ASP.NET Core Web API)
-    - API Gateway Pattern
-    - HttpClient
-
-- **Resilience**
-    - Polly (Retry + Circuit Breaker)
-
-- **Auth**
-    - Auth0 (OIDC, JWT)
+```
+Angular Frontend (Auth0 popup login)
+        │
+        ▼
+API Gateway :5002  (JWT validation → forwards Bearer token)
+        │
+        ├──▶ UserService  :5003  (Auth0 upsert, user profile)
+        │
+        └──▶ OrderService :5000  (order management, per-user filtering)
+                  │
+                  ▼
+        PaymentClient  (Polly: retry + circuit breaker)
+                  │
+                  ▼
+        PaymentService :5001  (payment processing)
+```
 
 ---
 
-## ⚙️ Setup & Run
+## Features
 
-### 1. Clone the repository
+- **Auth0 Authentication** — popup-based login (no full-page redirect), silent session restore, logout
+- **Auto user registration** — first login creates a user record from JWT claims (`sub`, `email`, `name`)
+- **Per-user orders** — orders are scoped to the logged-in user via `userId` query filtering
+- **API Gateway** — validates JWT, forwards raw Bearer token to downstream services
+- **Entity Framework Core + SQLite** — persistent storage for users, orders, and payments with migrations
+- **Resilient service communication** — Polly retry (exponential backoff) + circuit breaker on PaymentClient
+- **Clean Angular dashboard** — user profile header, orders table, create/refresh actions
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Angular 19, RxJS, Auth0 Angular SDK |
+| API Gateway | ASP.NET Core, JWT Bearer |
+| Services | .NET 10, ASP.NET Core Web API |
+| Persistence | Entity Framework Core, SQLite |
+| Resilience | Polly v8 (ResiliencePipelineBuilder) |
+| Auth | Auth0 (OIDC / JWT) |
+
+---
+
+## Services & Ports
+
+| Service | Port | Responsibility |
+|---|---|---|
+| ApiGateway | 5002 | JWT validation, request routing |
+| OrderService | 5000 | Order creation, per-user order retrieval |
+| PaymentService | 5001 | Payment processing |
+| UserService | 5003 | User registration and profile |
+
+---
+
+## Setup & Run
+
+### 1. Clone
 ```bash
 git clone <your-repo-url>
-cd <your-project>
+cd DistributedOrderManagementPlatform
+```
 
+### 2. Run backend services (each in a separate terminal)
+```bash
+cd Backend/ApiGateway      && dotnet run
+cd Backend/OrderService    && dotnet run
+cd Backend/PaymentService  && dotnet run
+cd Backend/UserService     && dotnet run
+```
 
-2. Run services
-Start each backend service:
-Shellcd Gatewaydotnet runcd OrderServicedotnet runcd PaymentServicedotnet runShow more lines
+EF Core migrations run automatically on startup — SQLite databases are created in each service directory.
 
-3. Run Angular frontend
-Shellcd frontendng serveShow more lines
-Open:
-http://localhost:4200
+### 3. Run Angular frontend
+```bash
+cd Frontend/angular-app
+npm install
+ng serve
+```
 
+Open [http://localhost:4200](http://localhost:4200)
 
-🔑 Auth0 Configuration
-Ensure your Auth0 application includes:
-Allowed Callback URLs
-http://localhost:4200
+---
 
-Allowed Logout URLs
-http://localhost:4200
+## Auth0 Configuration
 
-Allowed Web Origins
-http://localhost:4200
+In your Auth0 Application settings:
 
+| Setting | Value |
+|---|---|
+| Allowed Callback URLs | `http://localhost:4200` |
+| Allowed Logout URLs | `http://localhost:4200` |
+| Allowed Web Origins | `http://localhost:4200` |
 
-📌 Key Learnings
+---
 
-Designing and implementing API Gateway architecture
-Secure frontend-backend communication using JWT
-Handling CORS and preflight requests in ASP.NET Core
-Building resilient services using Polly
-Debugging distributed system issues (routing, serialization, async)
-Managing Angular state and change detection
+## Key Concepts Demonstrated
 
+- API Gateway pattern with JWT passthrough to downstream services
+- First-login user upsert using Auth0 JWT claims (`MapInboundClaims = false`)
+- Polly v8 `ResiliencePipelineBuilder` with retry and circuit breaker
+- Repository pattern with EF Core and SQLite
+- Angular standalone components with Auth0 popup login flow
+- Handling distributed system issues: routing mismatches, circuit breaker state, claim mapping
 
-🚀 Future Improvements
+---
 
-✅ Add database persistence (Orders & Transactions)
-✅ Implement audit logging (user-based tracking)
-✅ Add monitoring/logging (Serilog / Application Insights)
-✅ Introduce containerization (Docker)
-✅ Deploy to Azure / cloud platform
+## Roadmap
 
-👨‍💻 Author
-Kanishka Kapoor
+- [ ] Docker + docker-compose for one-command startup
+- [ ] Serilog structured logging across all services
+- [ ] Azure deployment
+- [ ] gRPC or message bus (RabbitMQ) for async service communication
 
-🏁 Status
-✅ Fully functional end-to-end system
-✅ Production-style architecture implemented
+---
+
+**Author:** Kanishka Kapoor

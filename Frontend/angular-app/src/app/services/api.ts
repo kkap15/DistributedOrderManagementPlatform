@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import {HttpClient} from '@angular/common/http';
-import {AuthService} from '@auth0/auth0-angular';
+import { User } from '../interfaces/User';
+import { Order } from '../interfaces/Orders';
 
 @Injectable({
   providedIn: 'root',
@@ -9,19 +10,29 @@ export class ApiService {
 
   private baseUrl = 'http://localhost:5002/gateway';
 
-  constructor(private http: HttpClient, private auth: AuthService) {
+  constructor(private http: HttpClient) {
+  }
+  
+  login() {
+    return this.http.post<User>(`${this.baseUrl}/user/login`, {});
+  }
+  
+  getUserProfile() {
+    return this.http.get<Order[]>(`${this.baseUrl}/user/me`);
   }
 
-  createOrder() {
+  createOrder(userId: string) {
     const order = {
-      id: 0,
       orderNumber: 'ORD-001',
-      userId: 1,
-      createdDate: new Date(),
-      totalAmount: 100,
+      userId: userId,
+      totalAmount: Math.random(),
       status: 'Created'
     };
 
-    return this.http.post(`${this.baseUrl}/order`, order);
+    return this.http.post(`${this.baseUrl}/order?userId=${userId}`, order);
+  }
+  
+  getOrders(userId: string) {
+    return this.http.get<Order[]>(`${this.baseUrl}/order?userId=${userId}`);
   }
 }

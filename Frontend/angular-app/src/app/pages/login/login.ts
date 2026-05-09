@@ -19,6 +19,9 @@ export class LoginComponent {
   }
 
   login() {
-    this.auth.loginWithRedirect();
+    this.auth.loginWithPopup().subscribe({
+      next: () => this.router.navigate(['/dashboard']),
+      error: (err) => console.error('Login failed', err)
+    });
   }
 }

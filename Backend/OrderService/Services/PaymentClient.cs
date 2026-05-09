@@ -5,39 +5,59 @@ using System.Threading.Tasks;
 using OrderService.Models;
 using Polly;
 using Polly.CircuitBreaker;
+using Polly.Retry;
 
 namespace OrderService.Services;
 
 public class PaymentClient(HttpClient httpClient)
 {
+    private readonly ResiliencePipeline<HttpResponseMessage> _pipeline =
+        new ResiliencePipelineBuilder<HttpResponseMessage>()
+            .AddRetry(new RetryStrategyOptions<HttpResponseMessage>
+            {
+                MaxRetryAttempts = 3,
+                BackoffType = DelayBackoffType.Exponential,
+                Delay = TimeSpan.FromSeconds(2),
+                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+                    .Handle<HttpRequestException>()
+                    .HandleResult(r => !r.IsSuccessStatusCode),
+                OnRetry = args =>
+                {
+                    Console.WriteLine($"Retry {args.AttemptNumber} after {args.RetryDelay.Seconds}s");
+                    return default;
+                }
+            })
+            .AddCircuitBreaker(new CircuitBreakerStrategyOptions<HttpResponseMessage>
+            {
+                FailureRatio = 0.5,
+                MinimumThroughput = 2,
+                SamplingDuration = TimeSpan.FromSeconds(30),
+                BreakDuration = TimeSpan.FromSeconds(30),
+                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+                    .Handle<HttpRequestException>()
+                    .HandleResult(r => !r.IsSuccessStatusCode),
+                OnOpened = _ => { Console.WriteLine("Circuit Open"); return default; },
+                OnClosed = _ => { Console.WriteLine("Circuit Closed"); return default; }
+            })
+            .Build();
+
+    private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     public async Task<PaymentResponse> ProcessPayment()
     {
-        var retryPolicy = Policy
-            .Handle<HttpRequestException>()
-            .OrResult<HttpResponseMessage>(response => !response.IsSuccessStatusCode)
-            .WaitAndRetryAsync(
-                3,
-                retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                (exception, timeSpan, retryCount, context) =>
-                {
-                    Console.WriteLine($"Retry {retryCount} after {timeSpan.Seconds} seconds due to: {exception.Exception?.Message ?? exception.Result?.StatusCode.ToString()}");
-                });
-        var circuitBreaker = Policy
-            .Handle<HttpRequestException>()
-            .OrResult<HttpResponseMessage>(response => !response.IsSuccessStatusCode)
-            .CircuitBreakerAsync(
-                2,
-                TimeSpan.FromSeconds(30),
-                onBreak: (ex, breakDelay) => { Console.WriteLine("Circuit Open"); },
-                onReset: () => { Console.WriteLine("Circuit Closed"); });
-        var policy = Policy.WrapAsync(retryPolicy, circuitBreaker);
-        var response = await policy.ExecuteAsync(() =>
-            httpClient.PostAsync("http://localhost:5001/api/payment", null));
+        var response = await _pipeline.ExecuteAsync(async ct =>
+            await httpClient.PostAsync("http://localhost:5001/api/payment", null, ct));
 
         var result = await response.Content.ReadAsStringAsync();
-        var json = JsonSerializer.Deserialize<PaymentResponse>(
-            result,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        return json;
+        return JsonSerializer.Deserialize<PaymentResponse>(result, _jsonOptions);
+    }
+    
+    public async Task<PaymentResponse> GetPaymentResponse(Guid transactionId)
+    {
+        var response = await _pipeline.ExecuteAsync(async ct =>
+            await httpClient.GetAsync($"http://localhost:5001/api/payment/{transactionId}", ct));
+
+        var result = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<PaymentResponse>(result, _jsonOptions);
     }
 }

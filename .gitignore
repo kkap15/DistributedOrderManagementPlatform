@@ -9,6 +9,11 @@ obj/
 *.userosscache
 *.sln.docstates
 
+# SQLite databases (auto-created by EF Core migrations at runtime)
+*.db
+*.db-shm
+*.db-wal
+
 # Visual Studio folders
 .vs/
 

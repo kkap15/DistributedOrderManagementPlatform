@@ -1,14 +1,12 @@
-
-using System;
-using System.Net.Http;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
+using OrderService.Data;
 using OrderService.Services;
+using Microsoft.EntityFrameworkCore;
+using OrderService.Repositories;
+using Microsoft.Extensions.Configuration;
 
 namespace OrderService;
 
@@ -19,6 +17,9 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services.AddControllers();
+        builder.Services.AddDbContext<OrderDbContext>(options =>
+            options.UseSqlite(builder.Configuration.GetConnectionString("OrderDb")));
+        builder.Services.AddScoped<IOrderRepositories, OrderRepositories>();
         builder.Services.AddEndpointsApiExplorer();
         
         builder.Services.AddHttpClient<PaymentClient>();
@@ -30,6 +31,11 @@ public class Program
         builder.Services.AddHttpClient();
 
         var app = builder.Build();
+        
+        using (var scope = app.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<OrderDbContext>().Database.Migrate();
+        }
 
         if (app.Environment.IsDevelopment())
         {
