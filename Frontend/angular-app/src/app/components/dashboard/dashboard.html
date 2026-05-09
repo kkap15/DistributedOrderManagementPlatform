@@ -1,21 +1,50 @@
-<h2>Dashboard</h2>
+<div class="dashboard">
+  <header class="topbar">
+    <span class="app-title">Order Management</span>
+    @if (currentUser) {
+      <div class="user-info">
+        <span class="user-name">{{ currentUser.name }}</span>
+        <span class="user-email">{{ currentUser.email }}</span>
+        <button class="btn-ghost" (click)="logout()">Sign out</button>
+      </div>
+    }
+  </header>
 
-<p>Loading state: {{loading}}</p>
-<button (click)="createOrder()" [disabled]="loading">
-  {{ loading ? 'Processing' : 'Create Order' }}
-</button>
+  <main class="content">
+    <div class="actions">
+      <button class="btn-primary" (click)="createOrder()" [disabled]="loading">
+        {{ loading ? 'Processing…' : '+ Create Order' }}
+      </button>
+      <button class="btn-secondary" (click)="getOrders()" [disabled]="loading">
+        {{ loading ? 'Loading…' : 'Refresh Orders' }}
+      </button>
+    </div>
 
-<button (click)="logout()">Logout</button>
+    @if (errorMessage) {
+      <div class="banner error">{{ errorMessage }}</div>
+    }
+    @if (resultMessage && !errorMessage) {
+      <div class="banner success">{{ resultMessage }}</div>
+    }
 
-@if (resultMessage) {
-  <div style="color:green">
-    {{ resultMessage }}
-  </div>
-}
-
-@if (errorMessage) {
-  <div style="color:red">
-    {{ errorMessage }}
-  </div>
-}
-
+    @if (orders.length > 0) {
+      <table class="orders-table">
+        <thead>
+          <tr><th>Order #</th><th>Status</th><th>Amount</th><th>Date</th></tr>
+        </thead>
+        <tbody>
+          @for (order of orders; track order.id) {
+            <tr>
+              <td>{{ order.orderNumber }}</td>
+              <td><span class="badge">{{ order.status }}</span></td>
+              <td>{{ order.totalAmount | currency }}</td>
+              <td>{{ order.createdAt | date:'mediumDate' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p class="empty-state">No orders yet. Click "Create Order" to get started.</p>
+    }
+  </main>
+</div>

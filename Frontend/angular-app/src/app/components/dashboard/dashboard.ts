@@ -4,6 +4,8 @@ import {AuthService} from '@auth0/auth0-angular';
 import { finalize } from "rxjs";
 import { NgZone } from '@angular/core';
 import {CommonModule} from '@angular/common';
+import { User } from '../../interfaces/User';
+import { Order } from '../../interfaces/Orders';
 
 @Component({
   selector: 'app-dashboard',
@@ -13,32 +15,76 @@ import {CommonModule} from '@angular/common';
   styleUrls: ['./dashboard.css'],
 })
 export class Dashboard {
-
   loading = false;
   resultMessage = '';
   errorMessage = '';
+  currentUser: User | null = null;
+  orders: Order[] = [];
 
   constructor(public api: ApiService, private authService: AuthService, private zone: NgZone, private cd: ChangeDetectorRef) {}
 
+  ngOnInit() {
+    this.api.login().subscribe({
+      next: (user) => {
+        this.currentUser = user;
+      }
+    });
+  }
 
   createOrder() {
+    if (!this.currentUser) {
+      this.errorMessage = "User not logged in"
+      return;
+    }
     this.loading = true;
 
-    this.api.createOrder().pipe(
+    this.resultMessage = '';
+    this.errorMessage = '';
+
+    this.api.createOrder(this.currentUser.id).pipe(
       finalize(() => {
         this.loading = false;
         this.cd.detectChanges();
       })
     ).subscribe({
       next: (result: any) => {
-        this.resultMessage = result?.message || "Unknown response";
+        this.resultMessage = `Order created — Transaction: ${result?.transactionId}, Status: ${result?.status}`;
+        //this.getOrders();
       },
       error: () => {
         this.errorMessage = "Order failed";
       }
     });
   }
+  
+  getOrders() {
+    if (!this.currentUser) {
+      this.errorMessage = "User not logged in";
+      return;
+    }
+    this.loading = true;
+    this.resultMessage = '';
+    this.errorMessage = '';
 
+    this.api.getOrders(this.currentUser.id).pipe(
+      finalize(() => {
+        this.loading = false;
+        this.cd.detectChanges();
+      })
+    ).subscribe({
+      next: (result: any) => {
+        if (Array.isArray(result)) {
+          this.orders = result;
+        } else {
+          this.orders = [];
+          this.resultMessage = result?.message ?? 'No orders found';
+        }
+      },
+      error: () => {
+        this.errorMessage = "Failed to fetch orders";
+      }
+    });
+  }
 
   logout() {
     this.authService.logout({

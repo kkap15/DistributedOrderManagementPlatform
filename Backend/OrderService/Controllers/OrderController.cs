@@ -1,34 +1,38 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using OrderService.Models;
+using OrderService.Repositories;
 using OrderService.Services;
 
 namespace OrderService.Controllers
 {
     [ApiController]
     [Route("api/order")]
-    public class OrderController(PaymentClient paymentClient) : ControllerBase
+    public class OrderController(PaymentClient paymentClient, IOrderRepositories orderRepositories, ILogger<OrderController> _logger) : ControllerBase
     {
-        [HttpPost]
+        [HttpPost("create")]
         public async Task<IActionResult> CreateOrder(Order order)
         {
             if (order == null)
             {
-                return BadRequest("Invalid order payload");
+                return BadRequest(new { message = "Invalid order payload"});
             }
 
-            Console.WriteLine($"Order received: {order?.OrderNumber}");
+            _logger.LogInformation($"Order received: {order?.OrderNumber}");
             try
             {
                 var result = await paymentClient.ProcessPayment();
-                Console.WriteLine($"Payment result: {result?.Message}");
-                Console.WriteLine(result!.TransactionId.ToString());
-                return Ok((object)result ?? new
-                {
-                    message = "Payment returned null",
-                    transactionId = Guid.Empty
-                });
+                order.Id = Guid.NewGuid();
+                order.OrderNumber = $"ORD-{DateTime.UtcNow.Ticks}";
+                order.TransactionId = result.TransactionId;
+                order.CreatedAt = result.ProcessedAt;
+                order.Status = result.Status;
+                await orderRepositories.AddOrderAsync(order);
+                await orderRepositories.SaveAsync();
+                return Ok(result);
             }
             catch (Exception e)
             {
@@ -36,11 +40,31 @@ namespace OrderService.Controllers
             }
         }
 
-        [HttpGet]
-        public IActionResult Get()
+        [HttpGet("get")]
+        public async Task<IActionResult> Get([FromQuery] Guid? userId)
         {
-            Console.WriteLine("Received GET request at Order Service");
-            return Ok("Hello World!");
+            var orders = userId.HasValue
+                ? await orderRepositories.GetOrdersByUserIdAsync(userId.Value)
+                : await orderRepositories.GetAllOrdersAsync();
+            if (!orders.Any())
+            {
+                return BadRequest(new
+                {
+                    message = $"No Orders Created By User with {userId}"
+                });
+            }
+            return Ok(orders);
+        }
+        
+        [HttpGet("transactionId")]
+        public async Task<IActionResult> GetOrderByTransactionId(Guid transactionId)
+        {
+            var order = await paymentClient.GetPaymentResponse(transactionId);
+            if (order == null)
+            {
+                return NotFound(new { message = "No order found for the specified transaction ID." });
+            }
+            return Ok(order);
         }
     }
 }

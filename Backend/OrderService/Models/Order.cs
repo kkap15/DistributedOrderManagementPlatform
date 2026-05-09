@@ -1,9 +1,11 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace OrderService.Models
 {
     public class Order
     {
+        [Key]
         public Guid Id { get; set; }
         public string OrderNumber { get; set; }
         public string Status { get; set; }
