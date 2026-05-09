@@ -47,6 +47,7 @@ API Gateway :5002  (JWT validation → forwards Bearer token)
 | Persistence | Entity Framework Core, SQLite |
 | Resilience | Polly v8 (ResiliencePipelineBuilder) |
 | Auth | Auth0 (OIDC / JWT) |
+| Containerisation | Docker, Docker Compose, nginx |
 
 ---
 
@@ -63,13 +64,33 @@ API Gateway :5002  (JWT validation → forwards Bearer token)
 
 ## Setup & Run
 
-### 1. Clone
+### Option A — Docker (recommended)
+
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bash
+git clone <your-repo-url>
+cd DistributedOrderManagementPlatform
+docker compose up --build
+```
+
+Open [http://localhost:4200](http://localhost:4200)
+
+All services start automatically. SQLite databases are stored in named Docker volumes and persist across restarts.
+
+> **macOS note:** macOS Control Center occupies port 5000 (AirPlay Receiver). Either disable it in System Settings → General → AirDrop & Handoff, or the `docker-compose.yml` already remaps OrderService to host port `5010`.
+
+---
+
+### Option B — Local (without Docker)
+
+#### 1. Clone
 ```bash
 git clone <your-repo-url>
 cd DistributedOrderManagementPlatform
 ```
 
-### 2. Run backend services (each in a separate terminal)
+#### 2. Run backend services (each in a separate terminal)
 ```bash
 cd Backend/ApiGateway      && dotnet run
 cd Backend/OrderService    && dotnet run
@@ -79,7 +100,7 @@ cd Backend/UserService     && dotnet run
 
 EF Core migrations run automatically on startup — SQLite databases are created in each service directory.
 
-### 3. Run Angular frontend
+#### 3. Run Angular frontend
 ```bash
 cd Frontend/angular-app
 npm install
@@ -115,7 +136,7 @@ In your Auth0 Application settings:
 
 ## Roadmap
 
-- [ ] Docker + docker-compose for one-command startup
+- [x] Docker + docker-compose for one-command startup
 - [ ] Serilog structured logging across all services
 - [ ] Azure deployment
 - [ ] gRPC or message bus (RabbitMQ) for async service communication
