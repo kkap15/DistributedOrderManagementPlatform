@@ -23,17 +23,16 @@ public class Program
         builder.Services.AddScoped<IOrderRepositories, OrderRepositories>();
         builder.Services.AddEndpointsApiExplorer();
         
-        builder.Services.AddHttpClient<PaymentClient>();
-        builder.Services.AddScoped<PaymentClient>();
-        builder.Services.AddSwaggerGen(c =>
-        {
-            c.SwaggerDoc("v1", new OpenApiInfo { Title = "OrderService", Version = "v1" });
-        });
         builder.Services.AddHttpClient<PaymentClient>(client =>
         {
             client.BaseAddress = new Uri(
                 builder.Configuration["PaymentService:BaseUrl"] ?? "http://localhost:5001"
             );
+        });
+        builder.Services.AddScoped<IPaymentClient, PaymentClient>();
+        builder.Services.AddSwaggerGen(c =>
+        {
+            c.SwaggerDoc("v1", new OpenApiInfo { Title = "OrderService", Version = "v1" });
         });
 
         var app = builder.Build();

@@ -11,7 +11,7 @@ namespace OrderService.Controllers
 {
     [ApiController]
     [Route("api/order")]
-    public class OrderController(PaymentClient paymentClient, IOrderRepositories orderRepositories, ILogger<OrderController> _logger) : ControllerBase
+    public class OrderController(IPaymentClient paymentClient, IOrderRepositories orderRepositories, ILogger<OrderController> _logger) : ControllerBase
     {
         [HttpPost("create")]
         public async Task<IActionResult> CreateOrder(Order order)

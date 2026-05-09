@@ -11,7 +11,7 @@ public static class UserHelper
         var newUser = new User
         {
             Id = Guid.NewGuid(),
-            Name = customUserClaims.NameClaim,
+            Name = string.IsNullOrEmpty(customUserClaims.NameClaim) ? customUserClaims.EmailClaim : customUserClaims.NameClaim,
             Email = customUserClaims.EmailClaim,
             Auth0Id = customUserClaims.Auth0IdClaim,
             CreatedAt = DateTime.UtcNow

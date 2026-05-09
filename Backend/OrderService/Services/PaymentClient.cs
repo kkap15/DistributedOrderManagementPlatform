@@ -9,8 +9,10 @@ using Polly.Retry;
 
 namespace OrderService.Services;
 
-public class PaymentClient(HttpClient httpClient)
+public class PaymentClient(HttpClient httpClient) : IPaymentClient
 {
+    private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
+    
     private readonly ResiliencePipeline<HttpResponseMessage> _pipeline =
         new ResiliencePipelineBuilder<HttpResponseMessage>()
             .AddRetry(new RetryStrategyOptions<HttpResponseMessage>
@@ -40,9 +42,6 @@ public class PaymentClient(HttpClient httpClient)
                 OnClosed = _ => { Console.WriteLine("Circuit Closed"); return default; }
             })
             .Build();
-
-    private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     public async Task<PaymentResponse> ProcessPayment()
     {
         var response = await _pipeline.ExecuteAsync(async ct =>
