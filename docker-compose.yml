@@ -1,0 +1,47 @@
+services:
+  apigateway:
+    build: ./Backend/ApiGateway
+    ports: ["5002:5002"]
+    environment:
+      - ASPNETCORE_URLS=http://+:5002
+      - Services__OrderService=http://orderservice:5000
+      - Services__UserService=http://userservice:5003
+    depends_on: [orderservice, userservice]
+  orderservice:
+    build: ./Backend/OrderService
+    ports: ["5010:5000"]
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+      - PaymentService__BaseUrl=http://paymentservice:5001
+      - ConnectionStrings__OrderDb=Data Source=/app/data/order.db
+    volumes:
+      - orderdb:/app/data
+    depends_on: [paymentservice]
+
+  paymentservice:
+    build: ./Backend/PaymentService
+    ports: ["5001:5001"]
+    environment:
+      - ASPNETCORE_URLS=http://+:5001
+      - ConnectionStrings__PaymentDb=Data Source=/app/data/payment.db
+    volumes:
+      - paymentdb:/app/data
+
+  userservice:
+    build: ./Backend/UserService
+    ports: ["5003:5003"]
+    environment:
+      - ASPNETCORE_URLS=http://+:5003
+      - ConnectionStrings__UserDb=Data Source=/app/data/user.db
+    volumes:
+      - userdb:/app/data
+
+  frontend:
+    build: ./Frontend/angular-app
+    ports: ["4200:80"]
+    depends_on: [apigateway]
+
+volumes:
+  orderdb:
+  paymentdb:
+  userdb:

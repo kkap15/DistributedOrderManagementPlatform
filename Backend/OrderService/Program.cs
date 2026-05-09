@@ -7,6 +7,7 @@ using OrderService.Services;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Repositories;
 using Microsoft.Extensions.Configuration;
+using System;
 
 namespace OrderService;
 
@@ -28,7 +29,12 @@ public class Program
         {
             c.SwaggerDoc("v1", new OpenApiInfo { Title = "OrderService", Version = "v1" });
         });
-        builder.Services.AddHttpClient();
+        builder.Services.AddHttpClient<PaymentClient>(client =>
+        {
+            client.BaseAddress = new Uri(
+                builder.Configuration["PaymentService:BaseUrl"] ?? "http://localhost:5001"
+            );
+        });
 
         var app = builder.Build();
         

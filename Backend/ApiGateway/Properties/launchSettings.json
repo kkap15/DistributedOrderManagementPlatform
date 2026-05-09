@@ -26,6 +26,10 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "Services": {
+      "OrderService": "http://localhost:5000",
+      "UserService": "http:localhost:5003"
     }
   }
 }
