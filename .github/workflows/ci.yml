@@ -24,6 +24,9 @@ jobs:
       - name: Build
         run: dotnet build Backend/MicroservicesPlatform.sln --no-restore -c Release
 
+      - name: Test
+        run: dotnet test Backend/MicroservicesPlatform.sln --no-build -c Release
+
   build-frontend:
     name: Build Angular
     runs-on: ubuntu-latest
@@ -47,4 +50,4 @@ jobs:
         run: npx ng build --configuration production
 
       - name: Test
-        run: npx ng test --no-progress --watch=false --browsers=ChromeHeadless
+        run: npx ng test --no-progress --watch=false
