@@ -8,7 +8,7 @@ namespace UserService.Repositories;
 public interface IUserRepositories
 {
     Task AddUserAsync(Models.User user);
-    Task<Models.User> GetUserByIdAsync(Guid id);
+    Task<User> GetUserByIdAsync(Guid id);
     Task<IEnumerable<Models.User>> GetAllUsersAsync();
     Task SaveAsync();
     Task<User?> GetByAuth0IdAsync(string auth0Id);

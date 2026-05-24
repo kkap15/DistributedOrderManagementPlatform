@@ -1,17 +1,21 @@
 ﻿using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using Contracts;
+using Contracts.Events;
+using Contracts.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OrderService.Models;
 using OrderService.Repositories;
-using OrderService.Services;
 
 namespace OrderService.Controllers
 {
     [ApiController]
     [Route("api/order")]
-    public class OrderController(IPaymentClient paymentClient, IOrderRepositories orderRepositories, ILogger<OrderController> _logger) : ControllerBase
+    public class OrderController(IOrderRepositories orderRepositories, 
+        ILogger<OrderController> _logger, IEventPublisher eventPublisher) : ControllerBase
     {
         [HttpPost("create")]
         public async Task<IActionResult> CreateOrder(Order order)
@@ -21,22 +25,32 @@ namespace OrderService.Controllers
                 return BadRequest(new { message = "Invalid order payload"});
             }
 
-            _logger.LogInformation($"Order received: {order?.OrderNumber}");
+            order.TransactionId = null;
+            order.Id = Guid.NewGuid();
+            order.OrderNumber = $"ORD-{DateTime.Now.Ticks}";
+            order.CreatedAt = DateTime.UtcNow;
+            order.Status = "Pending";
+            
             try
             {
-                var result = await paymentClient.ProcessPayment();
-                order.Id = Guid.NewGuid();
-                order.OrderNumber = $"ORD-{DateTime.UtcNow.Ticks}";
-                order.TransactionId = result.TransactionId;
-                order.CreatedAt = result.ProcessedAt;
-                order.Status = result.Status;
                 await orderRepositories.AddOrderAsync(order);
                 await orderRepositories.SaveAsync();
-                return Ok(result);
+                
+                await eventPublisher.PublishEventAsync(
+                    Topics.OrderCreated,
+                    order.Id.ToString(),
+                    new OrderCreatedEvent(
+                        Amount: order.TotalAmount,
+                        CreatedAt: order.CreatedAt,
+                        OrderId:  order.Id.ToString(),
+                        UserId: order.UserId.ToString()),
+                    CancellationToken.None);
+                return Accepted(new { orderId = order.Id, status = "Pending"});
             }
             catch (Exception e)
             {
-                throw new Exception($"Failed to create order: {e.Message}");
+                _logger.LogError(e, "Failed to create order {OrderNumber}", order.OrderNumber);
+                throw;
             }
         }
 
@@ -59,7 +73,7 @@ namespace OrderService.Controllers
         [HttpGet("transactionId")]
         public async Task<IActionResult> GetOrderByTransactionId(Guid transactionId)
         {
-            var order = await paymentClient.GetPaymentResponse(transactionId);
+            var order = await orderRepositories.GetOrderByIdAsync(transactionId);
             if (order == null)
             {
                 return NotFound(new { message = "No order found for the specified transaction ID." });

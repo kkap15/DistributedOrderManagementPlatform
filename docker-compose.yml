@@ -1,33 +1,77 @@
 services:
-  apigateway:
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports: ["8080:8080"]
+    environment:
+      KAFKA_CLUSTER_0_NAME: local
+      KAFKA_CLUSTER_0_BOOTSTRAPSERVICES: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+        
+  api-gateway:
     build: ./Backend/ApiGateway
     ports: ["5002:5002"]
     environment:
       - ASPNETCORE_URLS=http://+:5002
-      - Services__OrderService=http://orderservice:5000
-      - Services__UserService=http://userservice:5003
-    depends_on: [orderservice, userservice]
-  orderservice:
-    build: ./Backend/OrderService
+      - Services__OrderService=http://order-service:5000
+      - Services__UserService=http://user-service:5003
+    depends_on: [order-service, user-service]
+    
+  order-service:
+    build:
+      context: ./Backend
+      dockerfile: OrderService/Dockerfile
     ports: ["5010:5000"]
     environment:
       - ASPNETCORE_URLS=http://+:5000
-      - PaymentService__BaseUrl=http://paymentservice:5001
+      - PaymentService__BaseUrl=http://payment-service:5001
       - ConnectionStrings__OrderDb=Data Source=/app/data/order.db
+      - Kafka__BootstrapServers=kafka:29092
     volumes:
       - orderdb:/app/data
-    depends_on: [paymentservice]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      payment-service:
+        condition: service_started
 
-  paymentservice:
-    build: ./Backend/PaymentService
+  payment-service:
+    build: 
+      context: ./Backend
+      dockerfile: PaymentService/Dockerfile
     ports: ["5001:5001"]
     environment:
       - ASPNETCORE_URLS=http://+:5001
       - ConnectionStrings__PaymentDb=Data Source=/app/data/payment.db
+      - Kafka__BootstrapServers=kafka:29092
     volumes:
       - paymentdb:/app/data
+    depends_on:
+      kafka:
+        condition: service_healthy
 
-  userservice:
+  user-service:
     build: ./Backend/UserService
     ports: ["5003:5003"]
     environment:
@@ -39,7 +83,7 @@ services:
   frontend:
     build: ./Frontend/angular-app
     ports: ["4200:80"]
-    depends_on: [apigateway]
+    depends_on: [api-gateway]
 
 volumes:
   orderdb:

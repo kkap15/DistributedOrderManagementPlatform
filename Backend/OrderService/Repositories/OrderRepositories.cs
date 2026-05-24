@@ -24,7 +24,7 @@ public class OrderRepositories : IOrderRepositories
 
     public async Task<Order?> GetOrderByIdAsync(Guid id)
     {
-        return await _context.Orders.FindAsync(id);
+        return await _context.Orders.FirstOrDefaultAsync(o => o.TransactionId == id);
     }
 
     public async Task<IEnumerable<Order>> GetAllOrdersAsync()

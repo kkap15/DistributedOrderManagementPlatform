@@ -23,6 +23,9 @@ namespace PaymentService.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("OrderId")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("ProcessedAt")
                         .HasColumnType("TEXT");
 

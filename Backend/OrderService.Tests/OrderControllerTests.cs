@@ -1,24 +1,25 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
+using Contracts.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using OrderService.Controllers;
 using OrderService.Models;
 using OrderService.Repositories;
-using OrderService.Services;
 using Xunit;
 
 namespace OrderService.Tests;
 
 public class OrderControllerTests
 {
-    private readonly Mock<IPaymentClient> _payment = new();
     private readonly Mock<IOrderRepositories> _repo = new();
     private readonly Mock<ILogger<OrderController>> _logger = new();
+    private readonly Mock<IEventPublisher> _eventPublisher = new();
 
-    private OrderController Build() => new(_payment.Object, _repo.Object, _logger.Object);
+    private OrderController Build() => new(_repo.Object, _logger.Object,  _eventPublisher.Object);
 
     [Fact]
     public async Task CreateOrder_NullOrder_ReturnsBadRequest()
@@ -30,28 +31,29 @@ public class OrderControllerTests
     [Fact]
     public async Task CreateOrder_ValidOrder_CallsPaymentAndSaves()
     {
-        var payment = new PaymentResponse
-        {
-            Id = Guid.NewGuid(),
-            TransactionId = Guid.NewGuid(),
-            Status = "Success",
-            ProcessedAt = DateTime.UtcNow
-        };
-        _payment.Setup(p => p.ProcessPayment()).ReturnsAsync(payment);
-
         var order = new Order { UserId = Guid.NewGuid(), TotalAmount = 100 };
         var result = await Build().CreateOrder(order);
-
-        _payment.Verify(p => p.ProcessPayment(), Times.Once);
+        
         _repo.Verify(r => r.AddOrderAsync(order), Times.Once);
         _repo.Verify(r => r.SaveAsync(), Times.Once);
-        Assert.IsType<OkObjectResult>(result);
+        _eventPublisher.Verify(p => p.PublishEventAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<It.IsAnyType>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+        
+        Assert.IsType<AcceptedResult>(result);
     }
 
     [Fact]
     public async Task CreateOrder_PaymentThrows_ThrowsException()
     {
-        _payment.Setup(p => p.ProcessPayment()).ThrowsAsync(new Exception("payment down"));
+        _eventPublisher.Setup(p => p.PublishEventAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<It.IsAnyType>(),
+            It.IsAny<CancellationToken>())).ThrowsAsync(new Exception("kafka down"));
+        
         var order = new Order { UserId = Guid.NewGuid() };
 
         await Assert.ThrowsAsync<Exception>(() => Build().CreateOrder(order));

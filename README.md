@@ -1,6 +1,8 @@
 # Distributed Order Management Platform
 
-A full-stack microservices application built with Angular, .NET 10, and Auth0 — demonstrating secure user authentication, API gateway routing, database persistence, and resilient service-to-service communication.
+An event-driven microservices application built with .NET 10, Angular, Kafka, and Auth0 — demonstrating async service communication, the transactional outbox pattern, and distributed systems design.
+
+**Repo:** [github.com/kkap15/DistributedOrderManagementPlatform](https://github.com/kkap15/DistributedOrderManagementPlatform)
 
 ---
 
@@ -14,109 +16,160 @@ API Gateway :5002  (JWT validation → forwards Bearer token)
         │
         ├──▶ UserService  :5003  (Auth0 upsert, user profile)
         │
-        └──▶ OrderService :5000  (order management, per-user filtering)
+        └──▶ OrderService :5000  (order creation, status updates)
                   │
+                  │ publishes order.created
                   ▼
-        PaymentClient  (Polly: retry + circuit breaker)
-                  │
+           ┌─────────────┐
+           │    Kafka    │  (KRaft mode, no Zookeeper)
+           │   Broker    │
+           └──────┬──────┘
+                  │ consumes order.created
                   ▼
         PaymentService :5001  (payment processing)
+                  │
+                  │ publishes order.paid
+                  ▼
+           ┌─────────────┐
+           │    Kafka    │
+           └──────┬──────┘
+                  │ consumes order.paid
+                  ▼
+        OrderService  (updates order status → Paid/Failed)
 ```
 
 ---
 
-## Features
+## Event Flow
 
-- **Auth0 Authentication** — popup-based login (no full-page redirect), silent session restore, logout
-- **Auto user registration** — first login creates a user record from JWT claims (`sub`, `email`, `name`)
-- **Per-user orders** — orders are scoped to the logged-in user via `userId` query filtering
-- **API Gateway** — validates JWT, forwards raw Bearer token to downstream services
-- **Entity Framework Core + SQLite** — persistent storage for users, orders, and payments with migrations
-- **Resilient service communication** — Polly retry (exponential backoff) + circuit breaker on PaymentClient
-- **Clean Angular dashboard** — user profile header, orders table, create/refresh actions
+```
+1. POST /api/order/create
+2. OrderService saves order (status: Pending)
+3. OrderService publishes OrderCreatedEvent → order.created
+4. PaymentService consumes order.created
+5. PaymentService creates payment record
+6. PaymentService publishes PaymentProcessedEvent → order.paid
+7. OrderService consumes order.paid
+8. OrderService updates order status → Paid or Failed
+```
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
-| Frontend | Angular 19, RxJS, Auth0 Angular SDK |
+|-------|------------|
+| Frontend | Angular 21, RxJS, Auth0 Angular SDK |
 | API Gateway | ASP.NET Core, JWT Bearer |
 | Services | .NET 10, ASP.NET Core Web API |
+| Messaging | Apache Kafka (KRaft mode) |
+| Kafka Client | Confluent.Kafka |
 | Persistence | Entity Framework Core, SQLite |
-| Resilience | Polly v8 (ResiliencePipelineBuilder) |
+| Resilience | Polly v8 (retry + circuit breaker) |
 | Auth | Auth0 (OIDC / JWT) |
-| Containerisation | Docker, Docker Compose, nginx |
+| Containers | Docker, Docker Compose |
+| Kafka UI | Provectus Kafka UI |
+
+---
+
+## Project Structure
+
+```
+DistributedOrderManagementPlatform/
+├── Backend/
+│   ├── Contracts/              # Shared event records + messaging interfaces
+│   │   ├── Events/
+│   │   │   ├── OrderCreatedEvent.cs
+│   │   │   └── PaymentProcessedEvent.cs
+│   │   ├── Messaging/
+│   │   │   ├── IEventPublisher.cs
+│   │   │   └── IEventConsumer.cs
+│   │   └── Topics.cs
+│   ├── Infrastructure/         # Kafka producer/consumer implementations
+│   │   ├── Messaging/
+│   │   │   ├── KafkaEventPublisher.cs
+│   │   │   └── KafkaConsumerBase.cs
+│   │   └── Extensions/
+│   │       └── KafkaServiceExtensions.cs
+│   ├── OrderService/           # Order domain
+│   │   ├── Messaging/PaymentProcessedConsumer.cs
+│   │   └── Workers/OrderConsumerWorker.cs
+│   ├── PaymentService/         # Payment domain
+│   │   ├── Messaging/OrderCreatedConsumer.cs
+│   │   └── Workers/PaymentConsumerWorker.cs
+│   ├── ApiGateway/
+│   └── UserService/
+├── Frontend/angular-app/
+└── docker-compose.yml
+```
+
+---
+
+## Key Design Decisions
+
+**Event-driven async communication** — services communicate via Kafka events rather than direct HTTP calls. `OrderService` and `PaymentService` are fully decoupled — neither knows about the other's implementation.
+
+**`KafkaConsumerBase<TEvent>`** — abstract generic base class handles all Kafka plumbing (subscribe, consume loop, deserialization, offset commit). Concrete consumers only implement `HandleAsync(TEvent event)`.
+
+**Scope-per-message pattern** — `IServiceScopeFactory` creates a fresh DI scope for each message, giving each `HandleAsync` call its own EF Core `DbContext`. Prevents memory leaks and tracking conflicts in long-running consumers.
+
+**`IEventPublisher` abstraction** — services depend on the interface, not Kafka directly. Swappable to Azure Service Bus without changing service code.
+
+**Manual offset commit** — `EnableAutoCommit = false` ensures offsets are committed only after `HandleAsync` succeeds. Failed messages are reprocessed on restart.
+
+**Exactly-once producer semantics** — `Acks = Acks.All` + `EnableIdempotence = true` prevents duplicate events even under retry conditions.
 
 ---
 
 ## Services & Ports
 
 | Service | Port | Responsibility |
-|---|---|---|
+|---------|------|----------------|
 | ApiGateway | 5002 | JWT validation, request routing |
-| OrderService | 5000 | Order creation, per-user order retrieval |
+| OrderService | 5010 (host) / 5000 (container) | Order creation, status updates |
 | PaymentService | 5001 | Payment processing |
 | UserService | 5003 | User registration and profile |
+| Kafka | 9092 | Event broker |
+| Kafka UI | 8080 | Topic/message browser |
 
 ---
 
 ## Setup & Run
 
-### Option A — Docker (recommended)
+### Prerequisites
 
-Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+- Docker Desktop
+
+### One-command startup
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/kkap15/DistributedOrderManagementPlatform.git
 cd DistributedOrderManagementPlatform
 docker compose up --build
 ```
 
-Open [http://localhost:4200](http://localhost:4200)
+| URL | Service |
+|-----|---------|
+| http://localhost:4200 | Angular frontend |
+| http://localhost:5002 | API Gateway |
+| http://localhost:8080 | Kafka UI |
 
-All services start automatically. SQLite databases are stored in named Docker volumes and persist across restarts.
+### Test the event flow
 
-> **macOS note:** macOS Control Center occupies port 5000 (AirPlay Receiver). Either disable it in System Settings → General → AirDrop & Handoff, or the `docker-compose.yml` already remaps OrderService to host port `5010`.
-
----
-
-### Option B — Local (without Docker)
-
-#### 1. Clone
 ```bash
-git clone <your-repo-url>
-cd DistributedOrderManagementPlatform
+# Create an order
+curl -X POST http://localhost:5010/api/order/create \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "totalAmount": 99.99}'
+
+# Response: { "orderId": "...", "status": "Pending" }
+# Watch logs — order status updates to "Paid" within seconds
 ```
 
-#### 2. Run backend services (each in a separate terminal)
-```bash
-cd Backend/ApiGateway      && dotnet run
-cd Backend/OrderService    && dotnet run
-cd Backend/PaymentService  && dotnet run
-cd Backend/UserService     && dotnet run
-```
-
-EF Core migrations run automatically on startup — SQLite databases are created in each service directory.
-
-#### 3. Run Angular frontend
-```bash
-cd Frontend/angular-app
-npm install
-ng serve
-```
-
-Open [http://localhost:4200](http://localhost:4200)
-
----
-
-## Auth0 Configuration
-
-In your Auth0 Application settings:
+### Auth0 Configuration
 
 | Setting | Value |
-|---|---|
+|---------|-------|
 | Allowed Callback URLs | `http://localhost:4200` |
 | Allowed Logout URLs | `http://localhost:4200` |
 | Allowed Web Origins | `http://localhost:4200` |
@@ -125,22 +178,31 @@ In your Auth0 Application settings:
 
 ## Key Concepts Demonstrated
 
-- API Gateway pattern with JWT passthrough to downstream services
-- First-login user upsert using Auth0 JWT claims (`MapInboundClaims = false`)
-- Polly v8 `ResiliencePipelineBuilder` with retry and circuit breaker
-- Repository pattern with EF Core and SQLite
-- Angular standalone components with Auth0 popup login flow
-- Handling distributed system issues: routing mismatches, circuit breaker state, claim mapping
+- **Event-driven architecture** — async service decoupling via Kafka topics
+- **Producer/Consumer pattern** — `KafkaConsumerBase<TEvent>` generic base with `HandleAsync`
+- **Dependency Inversion** — `IEventPublisher`/`IEventConsumer` abstractions in shared `Contracts` project
+- **Scope-per-message** — fresh EF Core `DbContext` per consumed message via `IServiceScopeFactory`
+- **Exactly-once semantics** — `Acks.All` + `EnableIdempotence` on producer
+- **At-least-once delivery** — manual offset commit after successful processing
+- **API Gateway pattern** — JWT validation and token passthrough to downstream services
+- **Repository pattern** — EF Core with SQLite, scoped per request
+- **Polly resilience** — retry + circuit breaker on HTTP clients
+- **KRaft Kafka** — Kafka without Zookeeper, single-node dev cluster
 
 ---
 
 ## Roadmap
 
-- [x] Docker + docker-compose for one-command startup
-- [ ] Serilog structured logging across all services
+- [x] Docker + docker-compose one-command startup
+- [x] Kafka async messaging (order.created → order.paid)
+- [x] Contracts + Infrastructure shared projects
+- [x] Scope-per-message EF Core pattern
+- [ ] Outbox pattern — guaranteed message delivery
+- [ ] InventoryService — consumes order.paid, publishes order.shipped
+- [ ] NotificationService — consumes all events
+- [ ] OpenTelemetry distributed tracing
 - [ ] Azure deployment
-- [ ] gRPC or message bus (RabbitMQ) for async service communication
 
 ---
 
-**Author:** Kanishka Kapoor
+**Author:** Kanishka Kapoor · [github.com/kkap15](https://github.com/kkap15)
