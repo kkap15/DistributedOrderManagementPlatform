@@ -21,14 +21,22 @@ jobs:
         include:
           - service: apigateway
             context: ./Backend/ApiGateway
+            dockerfile: ./Backend/ApiGateway/Dockerfile
           - service: orderservice
-            context: ./Backend/OrderService
+            context: ./Backend
+            dockerfile: ./Backend/OrderService/Dockerfile
           - service: paymentservice
-            context: ./Backend/PaymentService
+            context: ./Backend
+            dockerfile: ./Backend/PaymentService/Dockerfile
+          - service: notificationservice
+            context: ./Backend
+            dockerfile: ./Backend/NotificationService/Dockerfile
           - service: userservice
             context: ./Backend/UserService
+            dockerfile: ./Backend/UserService/Dockerfile
           - service: frontend
             context: ./Frontend/angular-app
+            dockerfile: ./Frontend/angular-app/Dockerfile
 
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +61,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

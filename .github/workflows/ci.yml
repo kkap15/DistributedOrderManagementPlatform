@@ -19,13 +19,13 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Restore
-        run: dotnet restore Backend/MicroservicesPlatform.sln
+        run: dotnet restore Backend/DistributedOrderManagementPlatform.sln
 
       - name: Build
-        run: dotnet build Backend/MicroservicesPlatform.sln --no-restore -c Release
+        run: dotnet build Backend/DistributedOrderManagementPlatform.sln --no-restore -c Release
 
       - name: Test
-        run: dotnet test Backend/MicroservicesPlatform.sln --no-build -c Release
+        run: dotnet test Backend/DistributedOrderManagementPlatform.sln --no-build -c Release
 
   build-frontend:
     name: Build Angular
