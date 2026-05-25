@@ -12,4 +12,6 @@ public interface IOrderRepositories
     Task<IEnumerable<Order>> GetAllOrdersAsync();
     Task SaveAsync();
     Task<IEnumerable<Order>> GetOrdersByUserIdAsync(Guid userId);
+    Task AddOutboxMessageAsync(OutboxMessage message);
+    Task<List<OutboxMessage>> GetUnpublishedOutboxMessagesAsync();
 }

@@ -2,10 +2,11 @@ import {ChangeDetectorRef, Component} from '@angular/core';
 import {ApiService} from '../../services/api';
 import {AuthService} from '@auth0/auth0-angular';
 import { finalize } from "rxjs";
-import { NgZone } from '@angular/core';
+import { NgZone, inject } from '@angular/core';
 import {CommonModule} from '@angular/common';
 import { User } from '../../interfaces/User';
 import { Order } from '../../interfaces/Orders';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -20,10 +21,17 @@ export class Dashboard {
   errorMessage = '';
   currentUser: User | null = null;
   orders: Order[] = [];
+  private notificationService = inject(NotificationService);
+  private api = inject(ApiService);
+  private authService = inject(AuthService);
+  private cd = inject(ChangeDetectorRef);
+  private zone = inject(NgZone);
 
-  constructor(public api: ApiService, private authService: AuthService, private zone: NgZone, private cd: ChangeDetectorRef) {}
+  constructor() {}
 
   ngOnInit() {
+    this.notificationService.start();
+    
     this.api.login().subscribe({
       next: (user) => {
         this.currentUser = user;
@@ -56,6 +64,8 @@ export class Dashboard {
       }
     });
   }
+  
+  notifications = this.notificationService.notifications;
   
   getOrders() {
     if (!this.currentUser) {

@@ -15,12 +15,14 @@ public class Program
 
         builder.Services.AddControllers();
         builder.Services.AddHttpClient();
-        
+        builder.Services.AddReverseProxy()
+            .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowAngular", policy =>
             {
                 policy.WithOrigins("http://localhost:4200")
+                    .AllowCredentials()
                     .AllowAnyHeader()
                     .AllowAnyMethod();
             });
@@ -99,6 +101,7 @@ public class Program
         });
         
         app.MapControllers();
+        app.MapReverseProxy();
 
         app.Run();
     }

@@ -30,3 +30,40 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .badge { background: #e0e7ff; color: #3730a3; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; }
 
 .empty-state { color: #9ca3af; text-align: center; margin-top: 48px; font-size: 15px; }
+
+.notification-panel {
+  margin: 16px 0;
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.notification-title {
+  padding: 12px 16px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.notification-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+}
+
+.notification-item.order {
+  border-left: 3px solid #3b82f6;
+}
+
+.notification-item.payment {
+  border-left: 3px solid #10b981;
+}
+
+.notification-icon { font-size: 18px; }
+.notification-message { flex: 1; color: #374151; }
+.notification-time { font-size: 12px; color: #9ca3af; font-family: monospace; }

@@ -23,8 +23,8 @@ services:
     image: provectuslabs/kafka-ui:latest
     ports: ["8080:8080"]
     environment:
-      KAFKA_CLUSTER_0_NAME: local
-      KAFKA_CLUSTER_0_BOOTSTRAPSERVICES: kafka:29092
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     depends_on:
       kafka:
         condition: service_healthy
@@ -80,6 +80,18 @@ services:
     volumes:
       - userdb:/app/data
 
+  notification-service:
+    build:
+      context: ./Backend
+      dockerfile: NotificationService/Dockerfile
+    ports: ["5004:5004"]
+    environment:
+      - ASPNETCORE_URLS=http://+:5004
+      - Kafka__BootstrapServers=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+  
   frontend:
     build: ./Frontend/angular-app
     ports: ["4200:80"]

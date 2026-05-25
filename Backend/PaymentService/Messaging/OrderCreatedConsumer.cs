@@ -29,25 +29,25 @@ public class OrderCreatedConsumer : KafkaConsumerBase<OrderCreatedEvent>
     protected override async Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken)
     {
         await using var scope = _scopeFactory.CreateAsyncScope() ;
-        var orderRepository = scope.ServiceProvider.GetRequiredService<IPaymentRepositories>();
+        var paymentRepositories = scope.ServiceProvider.GetRequiredService<IPaymentRepositories>();
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
             TransactionId = Guid.NewGuid(),
             ProcessedAt = DateTime.UtcNow,
-            Status = "Processed",
+            Status = "PaymentProcessed",
             OrderId = @event.OrderId,
         };
         
-        await orderRepository.AddPaymentAsync(payment);
-        await orderRepository.SaveAsync();
+        await paymentRepositories.AddPaymentAsync(payment);
+        await paymentRepositories.SaveAsync();
 
         var paymentProcessedEvent = new PaymentProcessedEvent
         (
             OrderId: @event.OrderId,
             PaymentId: payment.Id.ToString(),
             FailureReason: null,
-            ProcessedAt: payment.ProcessedAt,
+            ProcessedAt: new DateTimeOffset(payment.ProcessedAt, TimeSpan.Zero),
             Success: true
         );
 

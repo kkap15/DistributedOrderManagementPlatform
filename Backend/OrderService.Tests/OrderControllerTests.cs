@@ -19,7 +19,7 @@ public class OrderControllerTests
     private readonly Mock<ILogger<OrderController>> _logger = new();
     private readonly Mock<IEventPublisher> _eventPublisher = new();
 
-    private OrderController Build() => new(_repo.Object, _logger.Object,  _eventPublisher.Object);
+    private OrderController Build() => new(_repo.Object, _logger.Object);
 
     [Fact]
     public async Task CreateOrder_NullOrder_ReturnsBadRequest()

@@ -27,6 +27,7 @@ public abstract class KafkaConsumerBase<TEvent> : IEventConsumer
 
     public async Task ConsumeEventAsync(CancellationToken cancellationToken)
     {
+        logger.LogInformation("Starting consumer for topic: {Topic}", _topic);
         while (!cancellationToken.IsCancellationRequested)
         {
             try
@@ -47,9 +48,16 @@ public abstract class KafkaConsumerBase<TEvent> : IEventConsumer
             {
                 try
                 {
-                    _consumer.Subscribe(_topic);
                     var cr = _consumer.Consume(cancellationToken);
-                    var data = JsonSerializer.Deserialize<TEvent>(cr.Message.Value)!;
+                    if (cr?.Message?.Value is null || string.IsNullOrWhiteSpace(cr.Message.Value))
+                        continue;
+                    var raw = cr.Message.Value;
+                    if (raw.StartsWith("\"") && raw.EndsWith("\""))
+                    {
+                        raw = JsonSerializer.Deserialize<string>(raw)!;
+                    }
+
+                    var data = JsonSerializer.Deserialize<TEvent>(raw)!;
                     await HandleAsync(data, cancellationToken);
                     _consumer.Commit(cr);
                 }
@@ -59,8 +67,21 @@ public abstract class KafkaConsumerBase<TEvent> : IEventConsumer
                 }
                 catch (ConsumeException e)
                 {
-                    logger.LogError(e, "Consume error: {Reason}", e.Error.Reason);
-                    await Task.Delay(2000, cancellationToken);
+                    if (e.Error.Code == ErrorCode.UnknownTopicOrPart)
+                    {
+                        logger.LogWarning("Topic {Topic} not found. Waiting for topic creation", _topic);
+                        await Task.Delay(5000, cancellationToken);
+                    }
+                    else
+                    {
+                        logger.LogError(e, "Consume error: {Reason}", e.Error.Reason);
+                        await Task.Delay(2000, cancellationToken);
+                    }
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "Unhandled error processing message on topic {Topic}", _topic);
+                    await Task.Delay(1000, cancellationToken);
                 }
             }
         }

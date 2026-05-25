@@ -41,7 +41,23 @@ public sealed class KafkaEventPublisher : IEventPublisher, IAsyncDisposable
             throw;
         }
     }
-    
+
+    public async Task PublishRawEventAsync(string topic, string key, string payload, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _producer.ProduceAsync(topic, new Message<string, string> { Key = key, Value = payload },
+                cancellationToken);
+            _logger.LogInformation("Published: {Topic} key={Key} [{Partition}@{offset}]", topic, key, result.Partition,
+                result.Offset);
+        }
+        catch (ProduceException<string, string> e)
+        {
+            _logger.LogError(e, "Error during publishing: {Message}", e.Message);
+            throw;
+        }
+    }
+
 
     public async ValueTask DisposeAsync()
     {

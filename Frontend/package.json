@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@auth0/auth0-angular": "^2.9.0"
+    "@auth0/auth0-angular": "^2.9.0",
+    "@microsoft/signalr": "^10.0.0"
   }
 }

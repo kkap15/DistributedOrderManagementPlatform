@@ -41,4 +41,17 @@ public class OrderRepositories : IOrderRepositories
     {
         return await _context.Orders.Where(o => o.UserId == userId).ToListAsync();
     }
+
+    public async Task AddOutboxMessageAsync(OutboxMessage message)
+    {
+        await _context.OutboxMessages.AddAsync(message);
+    }
+
+    public async Task<List<OutboxMessage>> GetUnpublishedOutboxMessagesAsync()
+    {
+        return await _context.OutboxMessages
+            .Where(m => !m.IsPublished)
+            .OrderBy(m => m.CreatedAt)
+            .ToListAsync();
+    }
 }

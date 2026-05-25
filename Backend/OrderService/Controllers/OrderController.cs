@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Contracts;
@@ -14,8 +15,7 @@ namespace OrderService.Controllers
 {
     [ApiController]
     [Route("api/order")]
-    public class OrderController(IOrderRepositories orderRepositories, 
-        ILogger<OrderController> _logger, IEventPublisher eventPublisher) : ControllerBase
+    public class OrderController(IOrderRepositories orderRepositories, ILogger<OrderController> _logger) : ControllerBase
     {
         [HttpPost("create")]
         public async Task<IActionResult> CreateOrder(Order order)
@@ -33,18 +33,21 @@ namespace OrderService.Controllers
             
             try
             {
+                var payload = JsonSerializer.Serialize(new OrderCreatedEvent(order.Id.ToString(),
+                    order.UserId.ToString(), order.TotalAmount, order.CreatedAt));
+                var outboxMessage = new OutboxMessage
+                {
+                    Id = Guid.NewGuid(),
+                    Topic = Topics.OrderCreated,
+                    Payload = payload,
+                    IsPublished = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await orderRepositories.AddOutboxMessageAsync(outboxMessage);
                 await orderRepositories.AddOrderAsync(order);
                 await orderRepositories.SaveAsync();
                 
-                await eventPublisher.PublishEventAsync(
-                    Topics.OrderCreated,
-                    order.Id.ToString(),
-                    new OrderCreatedEvent(
-                        Amount: order.TotalAmount,
-                        CreatedAt: order.CreatedAt,
-                        OrderId:  order.Id.ToString(),
-                        UserId: order.UserId.ToString()),
-                    CancellationToken.None);
+                _logger.LogInformation("Order {OrderNumber} created with status Pending", order.OrderNumber);
                 return Accepted(new { orderId = order.Id, status = "Pending"});
             }
             catch (Exception e)

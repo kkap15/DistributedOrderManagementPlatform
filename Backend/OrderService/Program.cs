@@ -45,6 +45,7 @@ public class Program
         builder.Services.AddKafkaPublisher();
         builder.Services.AddSingleton<IEventConsumer, PaymentProcessedConsumer>();
         builder.Services.AddHostedService<OrderConsumerWorker>();
+        builder.Services.AddHostedService<OutboxProcessor>();
         
         builder.Services.AddSwaggerGen(c =>
         {

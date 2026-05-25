@@ -27,6 +27,19 @@
       <div class="banner success">{{ resultMessage }}</div>
     }
 
+    @if (notifications().length > 0) {
+      <div class="notifications-panel">
+        <h3 class="notification-title">Live Notifications</h3>
+        @for (notification of notifications(); track notification.time) {
+          <div class="notification-item" [class.order]="notification.type==='order'" [class.payment]="notification.type === 'payment'">
+            <span class="notification-icon">{{notification.type === 'order' ? '📦' : '💳' }}</span>
+            <span class="notification-message">{{notification.message }}</span>
+            <span class="notification-time">{{notification.time | date:'HH:mm:ss'}}</span>
+          </div>
+        }
+      </div>
+      
+    }
     @if (orders.length > 0) {
       <table class="orders-table">
         <thead>

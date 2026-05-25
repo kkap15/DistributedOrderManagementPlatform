@@ -10,4 +10,5 @@ public class OrderDbContext : DbContext
     }
 
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 }
