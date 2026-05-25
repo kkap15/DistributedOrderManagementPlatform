@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Contracts.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -17,7 +16,6 @@ public class OrderControllerTests
 {
     private readonly Mock<IOrderRepositories> _repo = new();
     private readonly Mock<ILogger<OrderController>> _logger = new();
-    private readonly Mock<IEventPublisher> _eventPublisher = new();
 
     private OrderController Build() => new(_repo.Object, _logger.Object);
 
@@ -34,13 +32,9 @@ public class OrderControllerTests
         var order = new Order { UserId = Guid.NewGuid(), TotalAmount = 100 };
         var result = await Build().CreateOrder(order);
         
+        _repo.Verify(r => r.AddOutboxMessageAsync(It.IsAny<OutboxMessage>()), Times.Once);
         _repo.Verify(r => r.AddOrderAsync(order), Times.Once);
         _repo.Verify(r => r.SaveAsync(), Times.Once);
-        _eventPublisher.Verify(p => p.PublishEventAsync(
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<It.IsAnyType>(),
-            It.IsAny<CancellationToken>()), Times.Once);
         
         Assert.IsType<AcceptedResult>(result);
     }
@@ -48,11 +42,8 @@ public class OrderControllerTests
     [Fact]
     public async Task CreateOrder_PaymentThrows_ThrowsException()
     {
-        _eventPublisher.Setup(p => p.PublishEventAsync(
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<It.IsAnyType>(),
-            It.IsAny<CancellationToken>())).ThrowsAsync(new Exception("kafka down"));
+        _repo.Setup(r => r.AddOutboxMessageAsync(It.IsAny<OutboxMessage>()))
+            .ThrowsAsync(new Exception("db error"));
         
         var order = new Order { UserId = Guid.NewGuid() };
 
